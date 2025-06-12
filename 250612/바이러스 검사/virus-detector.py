@@ -13,7 +13,7 @@ for i in range(n) :
 
 for cus in customer :
     if cus <= 0 :
-        break
+        continue
     res[1] += cus // arr[1]
 
     if cus % arr[1] != 0 :
