@@ -97,7 +97,7 @@ for _ in range(Q) :
                                     right_id=idx,
                                     length=lamp_pos[idx] - lamp_pos[idx-1],
                                     st_pos=lamp_pos[idx-1]))
-
+        
     elif cmd == 200 :
         # 두 가로등 사이 거리가 가장 먼 곳을 찾자.
         max_distance = get_max_distance() 
@@ -122,8 +122,6 @@ for _ in range(Q) :
         right_lamp.append(right_id)
         # 왼쪽 오른쪽 힙에도 넣어주자. 넣어주는건 좋은데 기존에 있는것들 중에 바꿔야 되는거 있지 않나?
         # 10 90 사이 50에 들어간다 치자. 그러면 10 50 50 90 으로 나뉠텐데. 이걸 우째 넣을까
-        # 지금 상황을 한 번 보자. 
-        # left_heap = [-1] + [-1] + [idx for idx in range(1, M)] = [-1, -1, 1, 2, 3]
         heapq.heappush(left_heap, (new_lamp_pos, new_lamp_id))
         heapq.heappush(right_heap, (-new_lamp_pos, new_lamp_id))
 
@@ -145,16 +143,16 @@ for _ in range(Q) :
 
     elif cmd == 300 :
         cmd, D = query
-        lamp_pos[D] = -1
-        left_id = left_lamp[D]
-        right_id = right_lamp[D]
+        lamp_pos[D] = -1            # 가로등 삭제
+        left_id = left_lamp[D]      # 삭제된 가로등 왼쪽 링크
+        right_id = right_lamp[D]    # 삭제된 가로등 오른쪽 링크
 
-        if left_id != -1 :
+        if left_id != -1 :          # 벽이 아니라면
             right_lamp[left_id] = right_id
-        if right_id != -1 :
+        if right_id != -1 :         # 벽이 아니라면
             left_lamp[right_id] = left_id
 
-        if left_id != -1 and right_id != -1 :
+        if left_id != -1 and right_id != -1 :   # 새로운 가로등 사이 거리 추가.
             heapq.heappush(distance_heap, Road(left_id=left_id,
                                             right_id=right_id,
                                             length=lamp_pos[right_id] - lamp_pos[left_id],
@@ -164,7 +162,7 @@ for _ in range(Q) :
         min_pos = 0
         max_pos = N + 1
 
-        while left_heap :
+        while left_heap :           # 삭제 되지 않은 가장 왼쪽 가로등 찾기 
             pos, id = left_heap[0]
             if lamp_pos[id] == pos :
                 min_pos = pos
@@ -172,7 +170,7 @@ for _ in range(Q) :
 
             heapq.heappop(left_heap)
         
-        while right_heap :
+        while right_heap :          # 삭제 되지 않은 가장 오른쪽 가로등 찾기
             pos, id = right_heap[0]
             if lamp_pos[id] == -pos :
                 max_pos = -pos
@@ -180,6 +178,6 @@ for _ in range(Q) :
 
             heapq.heappop(right_heap)
 
-        max_distance = get_max_distance()
+        max_distance = get_max_distance()   # 두 가로등 사이 가장 긴 거리 찾기
         mx_r = max(2 * (min_pos - 1), 2 * (N - max_pos), max_distance.length)
         print(mx_r)
