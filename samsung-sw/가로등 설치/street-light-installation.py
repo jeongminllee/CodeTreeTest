@@ -1,186 +1,185 @@
-"""
-1. 거리의 시작점 밝히기 : 가장 왼쪽에 있는 가로등이 1번 위치까지 밝혀야 함. 즉, L_min - r <= 1
-r >= L_min - 1
-2. 거리의 끝점 밝히기 : 가장 오른쪽에 있는 가로등이 N번 위치까지 밝혀야 함. L_max + r >= N
-r >= N - L_max
-3. 가로등 사이의 빈틈 채우기 : 인접한 두 가로등 L_i, L_j 사이의 모든 공간이 밝혀져야 함. 왼쪽가로등은 
-L_i + r, 오른쪽 가로등은 L_j - r 까지 밝힐 수 있음. L_i + r >= L_j - r
-2r >= L_j - L_i를 의미함. => r >= max(L_j - L_i) / 2 를 의미.
-r = max(2 * (L_min - 1), 2 * (N - L_max), max_dist)값을 찾아야 함.
+# 마을의 거리 : 1 ~ N
+# 소비 전력 r => 가로등은 [x-r, x+r] 만큼 거리를 밝힘
+# cmd == 100 : 마을 상태 확인
+    # N : 거리의 크기
+    # M : 초기에 존재하는 가로등 개수
+    # L1, L2, ... Lm : 초기에 존재하는 가로등의 위치 정보(1,2,3... 은 고유 번호)
 
-2. 어떻게 이 값들을 빠르게 찾을 것인가?
-'최대/최소'값을 반복적으로 찾아야 하는 문제에서는 우선순위 큐(힙)가 가장 효과적인 자료구조
-- 인접 가로등 간 최대 거리 : 두 가로등 사이의 거리를 '도로'라고 생각하고, 이 도로들을 최대 힙에 저장하면,
-인접한 가로등 간 최대 거리를 빠르게 찾을 수 있습니다.
-- 가장 왼쪽/오른쪽 가로등 위치: 가로등 위치들을 각각 최소힙과 최대힙에 저장하면, 각 힙의 최상단에서
-가장 왼쪽, 가장 오른쪽 가로등의 위치를 빠르게 찾을 수 있습니다.
+# cmd == 200 : 가로등 추가
+    # M+1, M+2, ... 순서대로 채워짐.
+    # 인접한 가로등 사이의 거리가 가장 먼 곳의 가운데에 새로운 가로등 설치
+    # 만약 거리가 같은 거리가 여러 개라면 좌표값이 가장 작은 가로등 쌍을 선택함.
+    # 가운데는 (Li + Lj) // 2를 의미하는듯? => 저 표시가 올림 표시라 처리는 (Li + Lj + 1) // 2 하면 될듯
 
-3. 가로등 추가/제거는?
-- 가로등 추가 : 가장 긴 도로의 중간에 새 가로등을 설치. 이는 최대 힙에서 가장 긴 도로를 꺼내고,
-그 도로를 두 개의 짧은 도로로 나누어 다시 힙에 넣는 과정으로 구현 가능
-- 가로등 제거 : 특정 가로등을 제거하면, 그 가로등을 기준으로 양쪽에 있던 두개의 도로가 사라지고, 
-대신 두 도로가 합쳐진 하나의 더 긴 도로가 생김. 이를 위해서 제거될 가로등의 양옆(이전,다음) 가로등이 
-무엇인지 알아야 함. 이 정보는 이중 연결 리스트와 유사한 방식으로, 각 가로등의 prev, next 정보를 
-배열에 저장하여 효율적으로 관리할 수 있음.
-"""
+# cmd == 300 : 가로등 제거
+    # D번 가로등 제거
 
+# cmd == 400 : 최적 위치 계산
+    # 마을 거리 [1, N]을 전부 밝힐 수 있는 최소 소비 전력 r 을 계산.
+# 최소 소비 전력 r의 2를 곱해 출력하는 프로그램을 작성
+# ====================================================
+from typing import Optional
 import heapq
+# 전역변수
+N, M = None, None   # 초기 값
+lamp_pos = []       # idx : 램프 ID, val : 램프 위치
 
-# 가로등 정보
-lamp_pos = None       # idx : 각 가로등의 ID, val: 위치
-prev_lamp_id = None   # idx : 각 가로등의 ID, val: 이전 가로등
-next_lamp_id = None   # idx : 각 가로등의 ID, val: 다음 가로등
+left_lamp = []      # idx : 램프 ID, val : 왼쪽의 램프 ID     왼쪽으로 바라보는 링크드 리스트
+right_lamp = []     # idx : 램프 ID, val : 오른쪽의 램프 ID    오른쪽으로 바라보는 링크드 리스트
 
-# 거리 관리
-roads = []          # 최대 힙, 두 가로등 사이의 거리가 가장 긴 도로
+left_heap = []      # idx : 램프 ID, val : 좌표값이 작은 순으로 정렬
+right_heap = []     # idx : 램프 ID, val : 좌표값이 큰 순으로 정렬(음수)
+distance_heap = []  # Road 담을거   (거리가 큰 순으로 정렬, 음수)
+
 
 class Road :
-    def __init__(self, 
-    left_lamp_id: int, 
-    right_lamp_id: int, 
-    length: int, 
-    st_pos: int) :
+    def __init__(self,
+                 left_id:int,
+                 right_id:int,
+                 length:int,
+                 st_pos:int):
         """
-        left_lamp_id: 도로의 왼쪽 가로등 ID
-        right_lamp_id: 도로의 오른쪽 가로등 ID
-        length: 도로의 길이
-        st_pos: 도로의 시작 위치(왼쪽 가로등 위치)
+        left_id:왼쪽 가로등\n
+        right_id:오른쪽 가로등\n
+        length:거리\n
+        st_pos:시작 위치\n
         """
-        self.left_lamp_id = left_lamp_id
-        self.right_lamp_id = right_lamp_id
+        self.left_id = left_id
+        self.right_id = right_id
         self.length = length
         self.st_pos = st_pos
 
-    # 최대힙으로 사용하기 위한 비교 연산자 정의
-    def __lt__(self, other) :
-        # 길이가 같으면 시작 위치가 작은 도로를 우선
+    def __lt__(self, other):
+        """
+        lt = less than 비교 연산자
+        """
         if self.length == other.length :
             return self.st_pos < other.st_pos
-        # 길이가 긴 도로를 우선
         return self.length > other.length
-
-# 양 끝 가로등 위치 관리
-lamp_pos_min_heap = []  # 최소힙, (pos, id) 튜플을 저장하여 위치가 가장 작은 가로등을 찾음
-lamp_pos_max_heap = []  # 최대힙, (-pos, id) 튜플을 저장하여 위치가 가장 큰 가로등을 찾음
-
-N, M = None, None
-
-# lazy deletion을 적용하여 가장 오른쪽에 있는 유효한 가로등 위치를 찾는 함수
-def get_max_pos_lamp() :
-    while lamp_pos_max_heap :
-        neg_pos, lamp_id = lamp_pos_max_heap[0]
-        # 힙에서 꺼낸 위치가 현재 lamp_pos에 저장된 실제 위치와 일치하는지 확인
-        # 일치하지 않으면, 이미 제거된 가로등의 오래된 정보이므로 힙에서 제거
-        if lamp_pos[lamp_id] == -neg_pos :
+    
+def get_max_distance() :
+    max_distance : Optional[Road] = None    # 가장 긴 거리를 가지고 있는 애를 여기에 담아 return
+    
+    while distance_heap :
+        road = distance_heap[0]
+        if lamp_pos[road.left_id] == road.st_pos and \
+            lamp_pos[road.right_id] == road.length + road.st_pos :
+            max_distance = road
             break
-        heapq.heappop(lamp_pos_max_heap)
-    return -lamp_pos_max_heap[0][0]
 
-# lazy deletion을 적용하여 가장 왼쪽에 있는 유효한 가로등 위치 찾는 함수
-def get_min_pos_lamp() :
-    while lamp_pos_min_heap :
-        pos, lamp_id = lamp_pos_min_heap[0]
-        # 힙에서 꺼낸 위치가 현재 lamp_pos에 저장된 실제 위치와 일치하는지 확인
-        if lamp_pos[lamp_id] == pos :
-            break
-        heapq.heappop(lamp_pos_min_heap)
-    return lamp_pos_min_heap[0][0]
+        heapq.heappop(distance_heap)
 
-# lazy deletion을 적용하여 가장 긴 유효한 도로를 찾는 함수
-def get_max_road() :
-    while roads :
-        road = roads[0]
-        left_lamp_id = road.left_lamp_id
-        right_lamp_id = road.right_lamp_id
-        length = road.length
-        st_pos = road.st_pos
+    return max_distance
 
-        # 힙에서 꺼낸 도로 정보가 현재 가로등 위치와 일치하는지 확인
-        # 즉, 이 도로를 구성하는 두 가로등이 여전히 인접해 있는지 검사
-        if lamp_pos[left_lamp_id] == st_pos and\
-        lamp_pos[right_lamp_id] == st_pos + length :
-            break
-        heapq.heappop(roads)
 
-    return roads[0]
 
-# 메인
 Q = int(input())
 for _ in range(Q) :
     query = list(map(int, input().split()))
     cmd = query[0]
 
-    if cmd == 100 : # 마을 상태 확인(초기화)
+    if cmd == 100 :
         _, N, M, *lamp_pos = query
-
-        # 가로등 위치 및 연결 리스트 정보 초기화
         lamp_pos = [-1] + lamp_pos
-        next_lamp_id = [-1] + [i+1 for i in range(1, M)] + [-1]
-        prev_lamp_id = [-1] + [-1] + [i-1 for i in range(2, M+1)]
 
-        # 초기 가로등 정보를 각 힙에 추가
-        for i in range(1, M+1) :
-            pos = lamp_pos[i]
-            heapq.heappush(lamp_pos_min_heap, (pos, i))
-            heapq.heappush(lamp_pos_max_heap, (-pos, i))
+        # 좌우를 빠르게 살피기 위해서는 링크드 리스트를 써야 할거 같음.
+        left_lamp = [-1] + [-1] + [idx for idx in range(1, M)]
+        right_lamp = [-1] + [idx + 1 for idx in range(1, M)] + [-1]
 
-            # 인접한 가로등 사이의 도로 정보를 roads 힙에 추가
-            if i > 1 :
-                length = pos - lamp_pos[i-1]
-                heapq.heappush(roads, Road(i-1, i, length, lamp_pos[i-1]))
-    
-    elif cmd == 200 :   # 가로등 추가
-        # 가장 긴 도로를 찾아 그 중간에 가로등 추가
-        road = get_max_road()
-        heapq.heappop(roads)
+        # 거리도 담아야 되는데, 거리를 담을 힙도 필요.
+        for idx in range(1, len(lamp_pos)) :
+            heapq.heappush(left_heap, (lamp_pos[idx], idx))     # 왼쪽 힙
+            heapq.heappush(right_heap, (-lamp_pos[idx], idx))   # 오른쪽 힙
 
-        # 새 가로등 위치 계산 (중간, 올림 처리)
-        new_pos = road.st_pos + (road.length + 1) // 2
+            if idx > 1 :    # 왼쪽 기준 1부터 시작. 가로등 M 에서 끊김.
+                heapq.heappush(distance_heap,                   # 거리
+                               Road(left_id=idx-1,
+                                    right_id=idx,
+                                    length=lamp_pos[idx] - lamp_pos[idx-1],
+                                    st_pos=lamp_pos[idx-1]))
+
+    elif cmd == 200 :
+        # 두 가로등 사이 거리가 가장 먼 곳을 찾자.
+        max_distance = get_max_distance() 
+        heapq.heappop(distance_heap)
+
+        left_id = max_distance.left_id
+        right_id = max_distance.right_id
+        length = max_distance.length
+        st_pos = max_distance.st_pos
+
+        # 새로운 좌표를 구해야 함.
+        # (left_pos + right_pos + 1) // 2 로 하면 되지 않을까?
         new_lamp_id = len(lamp_pos)
+        new_lamp_pos = st_pos + (length + 1) // 2
+        lamp_pos.append(new_lamp_pos)
 
-        # 이중 연결 리스트 정보 갱신
-        next_lamp_id[road.left_lamp_id] = new_lamp_id
-        prev_lamp_id[road.right_lamp_id] = new_lamp_id
-        next_lamp_id.append(road.right_lamp_id)
-        prev_lamp_id.append(road.left_lamp_id)
+        # left, right lamp 에도 넣어줍시다.
+        left_lamp[right_id] = new_lamp_id
+        right_lamp[left_id] = new_lamp_id
 
-        # 새 가로등 정보를 자료구조에 추가
-        lamp_pos.append(new_pos)
-        heapq.heappush(lamp_pos_min_heap, (new_pos, new_lamp_id))
-        heapq.heappush(lamp_pos_max_heap, (-new_pos, new_lamp_id))
+        left_lamp.append(left_id)
+        right_lamp.append(right_id)
+        # 왼쪽 오른쪽 힙에도 넣어주자. 넣어주는건 좋은데 기존에 있는것들 중에 바꿔야 되는거 있지 않나?
+        # 10 90 사이 50에 들어간다 치자. 그러면 10 50 50 90 으로 나뉠텐데. 이걸 우째 넣을까
+        # 지금 상황을 한 번 보자. 
+        # left_heap = [-1] + [-1] + [idx for idx in range(1, M)] = [-1, -1, 1, 2, 3]
+        heapq.heappush(left_heap, (new_lamp_pos, new_lamp_id))
+        heapq.heappush(right_heap, (-new_lamp_pos, new_lamp_id))
 
-        # 기존 도로가 2개의 새로운 도로로 나뉘었으므로, roade 힙에 추가
-        length1 = new_pos - road.st_pos
-        length2 = road.st_pos + road.length - new_pos
-        heapq.heappush(roads, Road(road.left_lamp_id, new_lamp_id, length1, road.st_pos))
-        heapq.heappush(roads, Road(new_lamp_id, road.right_lamp_id, length2, new_pos))
+        # distance 힙에도 넣어줄껀데 
+        # 왼쪽
+        heapq.heappush(distance_heap, 
+                       Road(left_id=left_id,
+                            right_id=new_lamp_id,
+                            length= new_lamp_pos - lamp_pos[left_id],
+                            st_pos=lamp_pos[left_id]))
+        
+        # 오른쪽
+        heapq.heappush(distance_heap, 
+                       Road(left_id=new_lamp_id,
+                            right_id=right_id,
+                            length= lamp_pos[right_id] - new_lamp_pos,
+                            st_pos=new_lamp_pos))
 
-    elif cmd == 300 :   # 가로등 제거
-        target_id = query[1]
-        # lamp_pos를 -1로 설정하여 제거되었음을 표시
-        lamp_pos[target_id] = -1
 
-        left_lamp_id = prev_lamp_id[target_id]
-        right_lamp_id = next_lamp_id[target_id]
+    elif cmd == 300 :
+        cmd, D = query
+        lamp_pos[D] = -1
+        left_id = left_lamp[D]
+        right_id = right_lamp[D]
 
-        # 이중 연결 리스트에서 제거된 가로등의 연결을 끊음
-        if left_lamp_id != -1 :
-            next_lamp_id[left_lamp_id] = right_lamp_id
-        if right_lamp_id != -1 :
-            prev_lamp_id[right_lamp_id] = left_lamp_id
+        if left_id != -1 :
+            right_lamp[left_id] = right_id
+        if right_id != -1 :
+            left_lamp[right_id] = left_id
 
-        # 제거된 가로등의 양옆 가로등이 모두 존재하면, 두 가로등을 잇는 새로운 도로가 생김
-        if left_lamp_id != -1 and right_lamp_id != -1 :
-            length = lamp_pos[right_lamp_id] - lamp_pos[left_lamp_id]
-            heapq.heappush(roads, Road(left_lamp_id, right_lamp_id, length, lamp_pos[left_lamp_id]))
+        if left_id != -1 and right_id != -1 :
+            heapq.heappush(distance_heap, Road(left_id=left_id,
+                                            right_id=right_id,
+                                            length=lamp_pos[right_id] - lamp_pos[left_id],
+                                            st_pos=lamp_pos[left_id]))
+        
+    elif cmd == 400 :
+        min_pos = 0
+        max_pos = N + 1
 
-    elif cmd == 400 :   # 최소 전력 계산
-        # 각 힙에서 필요한 값들을 가져옴
-        max_pos = get_max_pos_lamp()
-        min_pos = get_min_pos_lamp()
-        road = get_max_road()
+        while left_heap :
+            pos, id = left_heap[0]
+            if lamp_pos[id] == pos :
+                min_pos = pos
+                break
 
-        # 최소 전력 * 2 를 계산하여 출력
-        # max(가장 왼쪽 빈 공간 * 2, 가장 오른쪽 빈 공간 * 2, 가장 긴 도로 길이)
-        res = max(2 * (min_pos - 1), 2 * (N - max_pos), road.length)
-        print(res)
+            heapq.heappop(left_heap)
+        
+        while right_heap :
+            pos, id = right_heap[0]
+            if lamp_pos[id] == -pos :
+                max_pos = -pos
+                break
+
+            heapq.heappop(right_heap)
+
+        max_distance = get_max_distance()
+        mx_r = max(2 * (min_pos - 1), 2 * (N - max_pos), max_distance.length)
+        print(mx_r)
