@@ -27,8 +27,8 @@ lamp_pos = []       # idx : 램프 ID, val : 램프 위치
 left_lamp = []      # idx : 램프 ID, val : 왼쪽의 램프 ID     왼쪽으로 바라보는 링크드 리스트
 right_lamp = []     # idx : 램프 ID, val : 오른쪽의 램프 ID    오른쪽으로 바라보는 링크드 리스트
 
-left_heap = []      # idx : 램프 ID, val : 좌표값이 작은 순으로 정렬
-right_heap = []     # idx : 램프 ID, val : 좌표값이 큰 순으로 정렬(음수)
+left_heap = []      # idx : 램프 ID, val : 위치값이 작은 순으로 정렬
+right_heap = []     # idx : 램프 ID, val : 위치값이 큰 순으로 정렬(음수)
 distance_heap = []  # Road 담을거   (거리가 큰 순으로 정렬, 음수)
 
 
