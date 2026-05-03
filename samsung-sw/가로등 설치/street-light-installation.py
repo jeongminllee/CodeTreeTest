@@ -29,7 +29,7 @@ right_lamp = []     # idx : 램프 ID, val : 오른쪽의 램프 ID    오른쪽
 
 left_heap = []      # (val, idx) idx : 램프 ID, val : 위치값이 작은 순으로 정렬
 right_heap = []     # (-val, idx)idx : 램프 ID, val : 위치값이 큰 순으로 정렬(음수)
-distance_heap = []  # Road 담을거   (거리가 큰 순으로 정렬, 음수)
+distance_heap = []  # Road 담을거   (거리가 큰 순으로 정렬)
 
 
 class Road :
