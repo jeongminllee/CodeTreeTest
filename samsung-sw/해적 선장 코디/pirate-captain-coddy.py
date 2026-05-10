@@ -59,15 +59,15 @@ if __name__ == "__main__" :
             # 사격한 선박은 사격 시점을 포함해 r 시간 경과 후 다시 사격 대기 상태 
             total_attack = 0
             attack_ids = []
-
-            for fire in range(5) :
-                if len(fire_wait) == 0 :
-                    break
+            cnt = 0
+            while fire_wait and cnt < 5 :
                 
                 # 사격 실시
                 now_fire = heapq.heappop(fire_wait)
+                
                 attack_p, attack_id = now_fire
                 if attack_p == -ori_boat[attack_id][0] :
+                    cnt += 1
                     total_attack += -attack_p
                     attack_ids.append(attack_id)
 
@@ -80,9 +80,10 @@ if __name__ == "__main__" :
         for idx in range(len(reload_wait)) :
             curr_boat = reload_wait.popleft()
             ids, p, r = curr_boat
-            
             r -= 1
+            
             if r <= 0 :
                 heapq.heappush(fire_wait, [-p, ids])
+
             else :
                 reload_wait.append([ids, p, r])
