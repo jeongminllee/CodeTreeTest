@@ -1,103 +1,115 @@
+# ====
+"""
+1. 청소기 이동
+- 로봇은 순서대로 움직인다 => input 된 순서대로
+- 이동 거리가 가장 가까운 오염된 격자로 이동.
+- 상하좌우로 인접한 격자를 한 칸씩 이동
+- 우선순위 : 이동거리, 행, 열
+
+2. 청소
+- 청소기가 바라보고 있는 방향을 기준으로 본인이 위치한 격자, 왼쪽, 위쪽, 오른쪽 격자 청소
+- 청소할 수 있는 4가지 격자에서 청소할 수 있는 먼지량이 가장 큰 방향에서 청소를 시작
+- 격자마다 청소할 수 있는 최대 먼지량은 20
+- 우선순위 : 오른쪽, 아래쪽, 왼쪽, 위쪽
+- 청소기마다 순서대로 진행
+
+3. 먼지 축적
+- 먼지가 있는 모든 격자에 + 5
+
+4. 먼지 확산
+- 깨끗한 격자 : 주변 4방향 격자의 먼지량 합을 10으로 나눈 값만큼 먼지가 확산
+- 상하좌우 다 더해서 10으로 나눈 값 이다?
+- 소수점 아래 수는 버린다.
+
+5. 출력
+- 전체 공간의 총 먼지량을 출력
+- 먼지가 있는 곳이 없으면 0 출력
+"""
 from collections import deque
 
-ROBOT_DIRECTION = [[-1, 0], [0, -1], [0, 1], [1, 0]]    # 상좌우하
+# 전역 변수
+N, K, L = map(int, input().split())
+maps = [list(map(int, input().split())) for _ in range(N)]
+robots = []
 
+for _ in range(K) :
+    a, b = map(int, input().split())
+    robots.append([a-1, b-1])
 
-def robots_move(robots : deque[list[int]], idx: int) :
+DIRECTION = [[-1, 0], [1, 0], [0, -1], [0, 1]]
+ROBOT_DIRECTION = [
+    [[0, 0], [-1, 0], [0, 1], [1, 0]],     # 오른쪽
+    [[0, 0], [1, 0], [0, -1], [0, 1]],     # 아래쪽
+    [[0, 0], [-1, 0], [0, -1], [1, 0]],     # 왼쪽
+    [[0, 0], [-1, 0], [0, -1], [0, 1]],     # 위쪽
+]    
+
+def robot_move(robots: list[list[int]], idx: int) :
     """
-    robots : 로봇 청소기들 좌표
-    idx : 현재 로봇 청소기 번호
-    
-    1. 청소기 이동
-    이동 거리가 가장 가까운 오염된 격자로 이동. => 가장 가까운 이동거리를 구해야함. BFS
-    물건이나 청소기가 있는 격자로는 이동불가.
-    상하좌우로 인접한 격자를 한 칸씩 이동하여 도달하는 데 필요한 최소 이동 횟수를 의미
-    우선순위 : 가장 가까운 먼지 > 행번호 > 열번호
+    robot : 전체 로봇 좌표
+    idx : 현재 선택된 로봇 인덱스
     """
     robot_q = deque()
-    visited = [[0] * N for _ in range(N)]
-
-    # 각 로봇의 좌표를 담아서 이동. 만약 움직였는데 자기의 범위에 먼지가 없으면 -1, -1 로 보낼까? 
-    movement = N*N+1
-    res_robot = []
-
+    visited = [[0] * N for _ in range(N)]   # 방문
     for robot in robots :
-        visited[robot[0]][robot[1]] = 1
-
-    robot_q.append([0] + robots[idx]) # 이렇게 되면 [이동횟수, 행, 열] 이 되니까.
+        visited[robot[0]][robot[1]] = 1     # 현재 로봇 있는 자리는 이동 불가
+    
+    res_list = []               # 여기에는 이동 가능한 좌표를 넣을거임.
+    robot_q.append(robots[idx]) # 현재 로봇 좌표 
 
     while robot_q :
-        move_cnt, rr, rc = robot_q.popleft()
+        # early stop
+        if len(res_list) != 0 :
+            break
+        len_q = len(robot_q)    # flood fill 을 위한 length
+        for _ in range(len_q) : # 현재 queue 만큼 반복
+            ci, cj = robot_q.popleft()
 
-        # 정답처리 : 먼지를 발견했다. 더 짧은 이동거리로.
-        if maps[rr][rc] > 0 and movement >= move_cnt:
-            movement = move_cnt
-            res_robot.append([rr, rc])
-
-        for dr, dc in ROBOT_DIRECTION :
-            nr, nc = rr + dr, rc + dc
+            # stop 위치 잡기
+            if maps[ci][cj] > 0 :       # 현재 위치에 먼지가 있으면
+                res_list.append([ci, cj])   # 리스트에 넣는다.
             
-            # 네방향, 범위내, 미방문, 조건(박스가 있거나, 먼지 발견)
-            if 0 <= nr < N and 0 <= nc < N and visited[nr][nc] != 1:
-                # if maps[nr][nc] == -1 :
-                #     continue
-                
-                if maps[nr][nc] >= 0 :
-                    robot_q.append([move_cnt + 1, nr, nc])
-                    visited[nr][nc] = 1
-    if len(res_robot) == 0 :
-        return robots[idx]
-    else :
-        res_robot.sort()
-        return res_robot[0]
+            for di, dj in DIRECTION :
+                ni, nj = ci + di, cj + dj
 
-
-if __name__ == "__main__" :
-    N, K, L = map(int, input().split()) # 격자 크기, 청소기 개수, 테스트 횟수
-    maps = [list(map(int, input().split())) for _ in range(N)]
-    
-    robots = deque()
-    
-    for _ in range(K) :
-        a, b = map(int, input().split())    # 격자 구조가 1, 1 ~ N, N 이라 -1 씩 해줌
-        robots.append([a-1, b-1])
-    
-    # 테스트 결과만큼 돌리라 했으니까.
-    for _ in range(L) :
-        # 1. 로봇 청소기 이동
-        for k in range(K) :
-            moved_robots = robots_move(robots, k)
-            robots[k] = moved_robots
-
-
-        for k in range(K) :
-            clean_direction = [
-                [[0, 0], [-1, 0], [0, 1], [1, 0]],  # 오른쪽
-                [[0, 0], [0, 1], [1, 0], [0, -1]],  # 아래쪽
-                [[0, 0], [1, 0], [0, -1], [-1, 0]], # 왼쪽
-                [[0, 0], [0, -1], [-1, 0], [0, 1]]  # 위쪽
-            ]
-
-            dust_amount = []
-            for idx_direction in range(len(clean_direction)) :
-                dust_cnt = 0
-                for cr, cc in clean_direction[idx_direction] :
-                    nr, nc = robots[k][0] + cr, robots[k][1] + cc
-
-                    if 0 <= nr < N and 0 <= nc < N and maps[nr][nc] != -1 :
-                        dust_cnt += min(20, maps[nr][nc])
-
-                dust_amount.append([dust_cnt, idx_direction])
-            dust_amount.sort(key=lambda x: (-x[0], x[1]))
+                if 0 <= ni < N and 0 <= nj < N and maps[ni][nj] >= 0 and visited[ni][nj] == 0 :
+                    robot_q.append([ni, nj])
+                    visited[ni][nj] = 1
         
-            # 격자마다 청소 할 수 있는 최대 먼지량은 20 이라는 말은 각 격자마다 이겠지?
-            # dust_amount[robot_idx][0] 을 가져오면 [먼지량, idx_direction]
-            # 그럼 또 nr, nc 부여해서 max(0, maps[nr][nc] - 20) 하면 되겠네.
-            dust_direction = dust_amount[0][1]
-            for cr, cc in clean_direction[dust_direction] :
-                nr, nc = robots[k][0] + cr, robots[k][1] + cc
-                if 0 <= nr < N and 0 <= nc < N and maps[nr][nc] != -1 :
-                    maps[nr][nc] = max(0, maps[nr][nc] - 20)
+    # 이동 위치가 존재하면 sort후 return
+    if len(res_list) != 0 :
+        res_list.sort()
+        return res_list[0]
+    # 아니면 현재 위치 그대로 유지
+    else :
+        return robots[idx]
+
+if __name__ == '__main__' :
+    for _ in range(L) :
+        # 1. 로봇 이동
+        for idx in range(len(robots)) :
+            cur_robot = robot_move(robots, idx)
+            robots[idx] = cur_robot
+        
+        # 2. 청소
+        for idx in range(len(robots)) :
+            clean_tbl = []      # 어느 방향으로 청소할까?
+            for clean_idx in range(len(ROBOT_DIRECTION)) :
+                curr_clean = 0
+                for di, dj in ROBOT_DIRECTION[clean_idx] :
+                    ni, nj = robots[idx][0] + di, robots[idx][1] + dj
+                    if 0 <= ni < N and 0 <= nj < N and maps[ni][nj] != -1:
+                        curr_clean += min(20, maps[ni][nj])
+
+                clean_tbl.append([curr_clean, clean_idx])
+
+            clean_tbl.sort(key=lambda x:(-x[0], x[1]))
+            select_idx = clean_tbl[0][1]
+
+            for di, dj in ROBOT_DIRECTION[select_idx] :
+                ni, nj = robots[idx][0] + di, robots[idx][1] + dj
+                if 0 <= ni < N and 0 <= nj < N and maps[ni][nj] != -1 :
+                    maps[ni][nj] = max(0, maps[ni][nj] - 20)
 
         # 3. 먼지 축적
         for i in range(N) :
@@ -105,31 +117,31 @@ if __name__ == "__main__" :
                 if maps[i][j] > 0 :
                     maps[i][j] += 5
 
-        temp = [[0] * N for _ in range(N)]
         # 4. 먼지 확산
+        temp = [[0] * N for _ in range(N)]
         for i in range(N) :
             for j in range(N) :
                 if maps[i][j] == 0 :
                     dust_0 = 0
-                    for di, dj in ROBOT_DIRECTION :
+                    for di, dj in DIRECTION :
                         ni, nj = i + di, j + dj
                         if 0 <= ni < N and 0 <= nj < N and maps[ni][nj] > 0 :
                             dust_0 += maps[ni][nj]
 
-                    temp[i][j] = (dust_0 // 10)
+                    temp[i][j] = (dust_0//10)
 
         for i in range(N) :
             for j in range(N) :
                 if temp[i][j] > 0 :
                     maps[i][j] += temp[i][j]
 
-        # 5. 출력
-        cnt = 0
+        # 5. 먼지 출력
+        dust_cnt = 0
         for i in range(N) :
             for j in range(N) :
                 if maps[i][j] > 0 :
-                    cnt += maps[i][j]
+                    dust_cnt += maps[i][j]
 
-        print(cnt)
-        if cnt == 0 :
+        print(dust_cnt)
+        if dust_cnt == 0 :
             break
