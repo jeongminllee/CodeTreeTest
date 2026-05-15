@@ -69,11 +69,13 @@ def robot_move(robots: list[list[int]], idx: int) :
             if maps[ci][cj] > 0 :       # 현재 위치에 먼지가 있으면
                 res_list.append([ci, cj])   # 리스트에 넣는다.
             
+            # 다음 이동 예정지 선택
+            # 네 방향, 범위내, 미방문, 조건: 벽이 아닌 곳.
             for di, dj in DIRECTION :
                 ni, nj = ci + di, cj + dj
 
                 if 0 <= ni < N and 0 <= nj < N and maps[ni][nj] >= 0 and visited[ni][nj] == 0 :
-                    robot_q.append([ni, nj])
+                    robot_q.append([ni, nj])    
                     visited[ni][nj] = 1
         
     # 이동 위치가 존재하면 sort후 return
@@ -95,17 +97,20 @@ if __name__ == '__main__' :
         for idx in range(len(robots)) :
             clean_tbl = []      # 어느 방향으로 청소할까?
             for clean_idx in range(len(ROBOT_DIRECTION)) :
-                curr_clean = 0
-                for di, dj in ROBOT_DIRECTION[clean_idx] :
+                curr_clean = 0  # 현재 범위에서 확인 가능한 먼지량
+                for di, dj in ROBOT_DIRECTION[clean_idx] :  
                     ni, nj = robots[idx][0] + di, robots[idx][1] + dj
                     if 0 <= ni < N and 0 <= nj < N and maps[ni][nj] != -1:
                         curr_clean += min(20, maps[ni][nj])
 
+                # 먼지량, (우하좌상) 인덱스로 들어가게됨.
                 clean_tbl.append([curr_clean, clean_idx])
 
+            # 우선순위 : 먼지량이 많을수록, 인덱스가 작을수록
             clean_tbl.sort(key=lambda x:(-x[0], x[1]))
             select_idx = clean_tbl[0][1]
 
+            # 선택된 방향에서 정해진 격자만큼 최대 20 감소.
             for di, dj in ROBOT_DIRECTION[select_idx] :
                 ni, nj = robots[idx][0] + di, robots[idx][1] + dj
                 if 0 <= ni < N and 0 <= nj < N and maps[ni][nj] != -1 :
@@ -122,18 +127,18 @@ if __name__ == '__main__' :
         for i in range(N) :
             for j in range(N) :
                 if maps[i][j] == 0 :
-                    dust_0 = 0
+                    dust_0 = 0          # 현재 위치의 먼지가 0이면 먼지 확산 후보군.
                     for di, dj in DIRECTION :
                         ni, nj = i + di, j + dj
                         if 0 <= ni < N and 0 <= nj < N and maps[ni][nj] > 0 :
-                            dust_0 += maps[ni][nj]
+                            dust_0 += maps[ni][nj]  # 현재 위치에서 4방향에 있는 먼지량을 다 더함.
 
-                    temp[i][j] = (dust_0//10)
+                    temp[i][j] = (dust_0//10)   # 위에서 구한 먼지량을 10으로 나누고 소수점 버림.
 
         for i in range(N) :
             for j in range(N) :
                 if temp[i][j] > 0 :
-                    maps[i][j] += temp[i][j]
+                    maps[i][j] += temp[i][j]    # 확산된 먼지를 maps에 추가함.
 
         # 5. 먼지 출력
         dust_cnt = 0
