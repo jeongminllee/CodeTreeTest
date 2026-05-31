@@ -42,9 +42,7 @@ def main() :
         elif cmds[0] == 300 :                       # 함포 교체
             _, ids, pw = cmds
             boat_info[ids][0] = pw                  # 함포 교체
-            if boat_states[ids] == True :           # 사격 대기 상태면
-                # 사격 대기열에 새로 입력 (발포 시 기존 입력값은 lazy deletion에 의해 제거됨.)
-                heapq.heappush(atk_queue, [-pw, ids])   
+            heapq.heappush(atk_queue, [-pw, ids])   # 사격 대기열 기입 (나중에 lazy deletion 에 의해서 처리)
 
         elif cmds[0] == 400 :
             atk_power = 0       # 공격력 총합
@@ -53,6 +51,8 @@ def main() :
             while atk_queue and len(atk_boat) < 5 :
                 p, ids = heapq.heappop(atk_queue)   # 공격력이 높은 순, ids 가 낮은 순으로 heappop
                 if -p != boat_info[ids][0] :        # 만약 변경 전 공격력이면 deletion
+                    continue
+                if boat_states[ids] == False :      # 현재 재장전 중이면 deletion.
                     continue
                 atk_power += -p                     # 공격력 더해줌
                 atk_boat.append(ids)                # 공격 함박 수 + 1 (cnt 했었는데 길이로 처리해도 됨.)
