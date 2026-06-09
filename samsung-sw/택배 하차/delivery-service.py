@@ -93,18 +93,18 @@ if __name__ == "__main__" :
 
             for key in orders :
                 if is_left_zero(maps, boxes[key], N) :
-                    candidates.append(key)
-                    # heapq.heappush(candidates, key)
+                    # candidates.append(key)
+                    heapq.heappush(candidates, key)
 
         else :
             left_right = True
 
             for key in orders :
                 if is_right_zero(maps, boxes[key], N) :
-                    candidates.append(key)
-                    # heapq.heappush(candidates, key)
+                    # candidates.append(key)
+                    heapq.heappush(candidates, key)
 
-        candidates.sort()
+        # candidates.sort()
         delete_idx = candidates[0]
         print(delete_idx)
         clear_box(maps, boxes[delete_idx])
