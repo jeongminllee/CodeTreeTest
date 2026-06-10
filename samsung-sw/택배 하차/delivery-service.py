@@ -105,7 +105,8 @@ if __name__ == "__main__" :
                     heapq.heappush(candidates, key)
 
         # candidates.sort()
-        delete_idx = candidates[0]
+        # delete_idx = cadidates[0]
+        delete_idx = heapq.heappop(candidates)
         print(delete_idx)
         clear_box(maps, boxes[delete_idx])
         orders.remove(delete_idx)
