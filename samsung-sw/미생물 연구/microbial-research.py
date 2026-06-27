@@ -124,7 +124,7 @@ def check(maps:list[list[int]], lst: list[int]) :
         for si in range(N) :    # 가능한 모든 기준위치
             # 기준 (si, sj)에 더한 모든 좌표가 범위내이고, 0이면 성공
             for ci, cj in lst :
-                if si+ci >= N or sj+cj >= N or maps[si+cj][sj+cj] != 0 :
+                if si+ci >= N or sj+cj >= N or maps[si+ci][sj+cj] != 0 :
                     break
 
             else :      # 모든 좌표 배치 가능
