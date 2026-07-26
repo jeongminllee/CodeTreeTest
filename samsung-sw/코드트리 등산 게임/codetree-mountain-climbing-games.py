@@ -1,132 +1,121 @@
-"""
-등산가의 이동조건
-- 오른쪽으로만 이동 가능
-- 등산으로는 더 높은 산으로만 이동 가능
-
-케이블 카
-- 특정 산에서만 탈 수 있음
-- 현재 위치를 포함한 임의의 산을로 이동 가능. 높낮이 상관 X
-- 케이블카를 탄 이후에도 등산을 이어가며 이 또한 오른쪽에 위치한 더 높은 산으로만 이동 가능
-
-등산 시뮬레이션
-- 현재위치보다 오른쪽에 위치한 산으로 오르막 이동에 성공할 때 마다 1_000_000 점 획득
-- 케이블 카를 탈 수 있는 산에 도착해서, 케이블 카를 이용한다면 1_000_000 점 획득
-- 케이블 카 이용 후 다시 등산에 성공하면 1_000_000점 획득
-- 최종적으로 위치한 산의 높이만큼 점수 획득.
-
-명령
-- 빅뱅 : 100 n h1 h2 ... hn 
-- 우공이산 : 200 h = 지도에 존재하는 기존 산들 오른쪽 끝에 높이 h 를 갖는 산 1개 추가
-- 지진 : 300 = 지도에 존재하는 산 중 가장 오른쪽 위치의 산 제거
-- 등산 시뮬레이션 : 400 m_idx = 케이블 카를 이용할 수 있는 산이 왼쪽에서 m_idx 번째 산이라고 가정했을 때, 
-    등산 시뮬레이션 중 얻을 수 있는 최대 점수를 출력
-"""
-# 전역 변수 설정
 MAX_HEIGHT = 1_000_000
-TREE_SIZE = 4 * MAX_HEIGHT + 5
 
-tree = [0] * TREE_SIZE
-seg_index = [0] * TREE_SIZE
-dpBuckets = [[] for _ in range(MAX_HEIGHT + 1)]
+class SegmentTree :
+    def __init__(self, max_size) :
+        # base : max_size 이상인 2의 거듭제곱
+        self.base = 1
+        while self.base < max_size :
+            self.base <<= 1
 
-# 현재 지도 상태를 저장하는 리스트
-mountainHeights = []
-mountainDP = []
+        # 트리 노드는 (value, idx) 형태로 저장
+        # - value : 구간의 최대 dp
+        # - idx : 그 최대 dp를 만든 '가장 큰 높이'
+        # 파이썬의 튜플 비교는 (value, idx) 의 순서대로 진행하기 떄문에
+        # tie-break 규칙을 자연스럽게 만족
+        self.tree = [(0, 0) for _ in range(self.base << 1)]
 
-# 세그멘트 트리 업데이트
-def updateSegmentTree(node, left, right, height, dpValue) :
-    if height < left or height > right :
-        return
+    def get(self, left, right) :
+        """
+        구간 [left, right]의 (최대 dp, 그 dp를 만든 최대 높이) 반환
+        내부적으로 리프 인덱스는 base를 더해 접근
+        """
+        res = (0, 0)
+        left += self.base
+        right += self.base
 
-    if left == right :
-        tree[node] = dpValue
-        seg_index[node] = height
-        return
+        # left가 홀수면 현재 노드를 포함하고 부모로 이동
+        # right가 짝수면 현재 노드를 포함하고 부모로 이동
+        # 아니라면 부모로만 이동
+        while left <= right :
+            if left & 1 :
+                res = max(res, self.tree[left]) # 튜플 비교로 최대값/높이 선택
+                left = (left + 1) >> 1
+            else :
+                left >>= 1
+            
+            if right & 1 :
+                right >>= 1
+            else :
+                res = max(res, self.tree[right])
+                right = (right - 1) >> 1
 
-    mid = (left + right) // 2
-    updateSegmentTree(node * 2, left, mid, height, dpValue)
-    updateSegmentTree(node * 2 + 1, mid + 1, right, height, dpValue)
+        return res
 
-    if tree[node*2] <= tree[node*2+1] :
-        tree[node] = tree[node*2+1]
-        seg_index[node] = seg_index[node*2+1]
-    else :
-        tree[node] = tree[node*2]
-        seg_index[node] = seg_index[node*2]
+    def update(self, idx, value) :
+        """
+        리프 idx 값을 (value, idx)로 설정한 뒤, 위로 올라가며 부모 값 갱신
+        - value = 0 이면 (0, idx)보다 (0, 0)이 더 작지 않으므로, 
+          같은 높이의 '현재 최대 dp'를 정확히 반영하려면
+          idx 대신 0을 써주는 구현도 가능하지만,
+          이 코드에서는 질의 결합에서 항상 더 큰 (value, idx)가 남으므로 문제 없음.
+        """
+        ti = idx + self.base
+        self.tree[ti] = (value, idx)
 
-# 세그멘트 트리 쿼리 함수 (최대 DP 값 구하기)
-def querySegmentTree(node, left, right, start, end) :
-    if left > end or right < start :
-        return 0
+        # 바다코끼리(윌러스) 연산자 (:=) 를 사용한 상향 갱신
+        while (ti := ti >> 1) > 0 :
+            # 왼/오 자식의 최대 튜플을 그대로 취함 
+            self.tree[ti] = max(self.tree[ti * 2], self.tree[ti * 2 + 1])
 
-    if start <= left and end >= right :
-        return tree[node]
+def add_func(h) :
+    """
+    오른쪽 끝에 높이 h 추가
+    - dp = 1 + max(D[0..h-1])   (세그트리 질의)
+    - 위치/높이별 구조 갱신
+    - 세그트리에 높이 h의 '현재 최대 dp' 반영
+    """
+    dp, _ = seg.get(0, h - 1)   # (최대 dp, idx) 중 dp만 사용
+    dp += 1
+    A.append(h)
+    D_by_idx.append(dp)
+    D_by_value[h].append(dp)
+    seg.update(h, dp)
 
-    mid = (left + right) // 2
-    leftQuery = querySegmentTree(node * 2, left, mid, start, end) 
-    rightQuery = querySegmentTree(node * 2 + 1, mid + 1, right, start ,end)
+def remove_func() :
+    """
+    오른쪽 끝 산을 제거
+    - 해당 높이으이 dp 히스토리 pop
+    - 세그트리에는 그 높이의 새 top(없으면 0)을 반영
+    """
+    h = A.pop()
+    D_by_idx.pop()
+    D_by_value[h].pop()
+    dp = 0
+    if D_by_value[h] :
+        dp = D_by_value[h][-1]  # 해당 높이의 '현재 최대 dp'
+    seg.update(h, dp)
 
-    return max(leftQuery, rightQuery)
-
-# 초기 트리 생성 함수
-def tree_init(n:int, heights:list[int]) -> None :
-    for h in range(1, MAX_HEIGHT + 1) :
-        dpBuckets[h].append(0)
-
-    for height in heights :
-        maxPrevDP = querySegmentTree(1, 1, MAX_HEIGHT, 1, height - 1)
-        dpValue = maxPrevDP + 1
-
-        dpBuckets[height].append(dpValue)
-        mountainHeights.append(height)
-        mountainDP.append(dpValue)
-        updateSegmentTree(1, 1, MAX_HEIGHT, height, dpValue)
-
-# 가장 오른쪽에 산 하나 추가 
-def add_tree(height) :
-    maxPrevDP = querySegmentTree(1, 1, MAX_HEIGHT, 1, height - 1)
-    dpValue = maxPrevDP + 1
-
-    dpBuckets[height].append(dpValue)
-    mountainHeights.append(height)
-    mountainDP.append(dpValue)
-
-    updateSegmentTree(1, 1, MAX_HEIGHT, height, dpValue)
-
-# 가장 오른쪽 산 제거
-def pop_tree() :
-    height = mountainHeights.pop()
-    mountainDP.pop()
-    dpBuckets[height].pop()
-    newDpValue = dpBuckets[height][-1]
-    updateSegmentTree(1, 1, MAX_HEIGHT, height, newDpValue)
-
-def simulate_hiking(m_idx) :
-    beforeCableCarDP = mountainDP[m_idx-1] - 1
-    afterCableCarDP = tree[1]
-    highestMountain = seg_index[1]
-
-    score = (beforeCableCarDP + afterCableCarDP) * 1_000_000 + highestMountain
-    print(score)
+def get_score(m_idx) :
+    """
+    등산 시뮬레이션 점수 계산
+    - L1 = m_idx 위치에서 끝나는 LIS 길이
+    - (L2, H_best) = 세그트리의 전체 최대 (dp, 높이)
+    - 점수 = (L1 + L2 - 1) * 1e6 + H_best
+    """
+    dp, idx = seg.get(0, MAX_HEIGHT)
+    return (D_by_idx[m_idx] + dp - 1) * 1_000_000 + idx
 
 if __name__ == "__main__" :
+    A = []  # 현재 지도 높이 배열
+    D_by_idx = []   # 위치별 "그 위치 산으로 끝나는 LIS 길이"
+    D_by_value = [[] for _ in range(MAX_HEIGHT + 1)]    # 높이별 dp 히스토리 스텍
+    seg = SegmentTree(MAX_HEIGHT + 1)   # 인덱스 = 높이, [0..MAX_HEIGHT]사용
 
     Q = int(input())
+
     for _ in range(Q) :
-        query = list(map(int, input().split()))
-        cmd = query[0]
+        cmd, *v = map(int, input().split())
 
-        if cmd == 100 : # 초기값 입력
-            _, n, *lst = query 
-            tree_init(n, lst)
+        if cmd == 100 :
+            n, *H = v
+            for h in H :
+                add_func(h)
 
-        elif cmd == 200 :   # 산 1개 추가
-            _, h = query
-            add_tree(h)
+        elif cmd == 200 :
+            add_func(v[0])
+        
+        elif cmd == 300 :
+            remove_func() 
 
-        elif cmd == 300 :   # 산 1개 삭제
-            pop_tree()
-
-        else :  # cmd == 400 # 실행
-            _, m_idx = query
-            simulate_hiking(m_idx)
+        else :
+            print(get_score(v[0] - 1))
