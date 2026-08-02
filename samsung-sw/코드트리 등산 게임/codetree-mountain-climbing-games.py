@@ -35,9 +35,11 @@ class Tree :
         ti = idx + self.base
         self.tree[ti] = (val, idx)
 
-        while ti > 0 :
-            ti >>= 1
+        while (ti := ti>>1) > 0 :
             self.tree[ti] = max(self.tree[ti * 2], self.tree[ti * 2 + 1])
+        # while ti > 0 :
+        #     ti >>= 1
+        #     self.tree[ti] = max(self.tree[ti * 2], self.tree[ti * 2 + 1])
 
 def add_func(h) :
     dp, _ = tree.get(0, h-1)
